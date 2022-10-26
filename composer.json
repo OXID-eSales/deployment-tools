@@ -1,0 +1,20 @@
+{
+  "name": "oxid-esales/deployment-tools",
+  "description": "The component contains deployment tools.",
+  "type": "oxideshop-component",
+  "keywords": ["oxid", "component", "eShop"],
+  "homepage": "https://www.oxid-esales.com",
+  "license": [
+    "GPL-3.0-only"
+  ],
+  "autoload": {
+    "psr-4": {
+      "OxidEsales\\DeploymentTools\\": "./src"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "OxidEsales\\DeploymentTools\\Tests\\": "./tests"
+    }
+  }
+}
