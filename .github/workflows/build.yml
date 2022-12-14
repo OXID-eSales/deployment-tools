@@ -1,0 +1,147 @@
+name: Build
+
+on:
+  schedule:
+    - cron: '0 12 * * 1'
+  workflow_dispatch:
+
+jobs:
+  run_tests:
+    strategy:
+      matrix:
+        php: [ '8.1' ]
+        mysql: [ '8.0' ]
+      fail-fast: false
+    runs-on: self-hosted
+    steps:
+      - name: Cleanup workspace
+        run: |
+          ls -la ./
+          rm -rf ./* || true
+          rm -rf ./.??* || true
+          ls -la ./
+
+      - name: Cleanup Docker
+        run: |
+          c=$(docker ps -q) && [[ $c ]] && docker kill $c
+          docker system prune --force
+
+      - name: Clone testing environment master
+        run: git clone --depth 1 https://github.com/OXID-eSales/docker-eshop-sdk.git --branch master --single-branch .
+
+      - name: Clone the shop (b-7.0.x)
+        run: git clone --depth 1 https://github.com/OXID-eSales/oxideshop_ce.git --branch b-7.0.x --single-branch source
+
+      - name: Cache current installation
+        uses: actions/cache@v3
+        with:
+          path: |
+            ./*
+          key: shopInstallation-${{ matrix.php }}-${{ matrix.mysql }}-${{ github.sha }}
+
+      - name: Prepare container configuration
+        run: |
+          make setup
+          make addbasicservices
+          perl -pi\
+              -e "s#PHP_VERSION=.*#PHP_VERSION='${{ matrix.php }}'#g;"\
+              -e "s#MYSQL_VERSION=.*#MYSQL_VERSION='${{ matrix.mysql }}'#g;"\
+              .env
+          perl -pi\
+              -e 's#display_errors =.*#display_errors = false#g;'\
+              -e 'print "xdebug.max_nesting_level=1000\n\n";'\
+              -e 'print "error_reporting = E_ALL & ~E_DEPRECATED & ~E_NOTICE & ~E_WARNING\n"'\
+              containers/php/custom.ini
+          perl -pi\
+              -e 's#/var/www/#/var/www/source/#g;'\
+              containers/httpd/project.conf
+
+      - name: Prepare shop configuration
+        run: |
+          cp source/source/config.inc.php.dist source/source/config.inc.php
+          perl -pi\
+            -e 'print "SetEnvIf Authorization \"(.*)\" HTTP_AUTHORIZATION=\$1\n\n" if $. == 1'\
+            source/source/.htaccess
+          perl -pi\
+            -e 's#<dbHost>#mysql#g;'\
+            -e 's#<dbUser>#root#g;'\
+            -e 's#<dbName>#example#g;'\
+            -e 's#<dbPwd>#root#g;'\
+            -e 's#<dbPort>#3306#g;'\
+            -e 's#<sShopURL>#http://localhost.local/#g;'\
+            -e 's#<sShopDir>#/var/www/source/#g;'\
+            -e 's#<sCompileDir>#/var/www/source/tmp/#g;'\
+            source/source/config.inc.php
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USER }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Start containers
+        run: |
+          make up
+          sleep 2
+
+      - name: Require deployment-tools
+        run: |
+          docker-compose exec -T php composer config github-protocols https
+          docker-compose exec -T php composer config -g github-oauth.github.com ${{ secrets.GH_CI_JENKINS_TOKEN }}
+          docker-compose exec -T php composer config repositories.oxid-esales/deployment-tools git https://github.com/OXID-eSales/deployment-tools.git
+          docker-compose exec -T php composer require oxid-esales/deployment-tools:dev-${{ github.ref_name }} --dev --no-install
+
+      - name: Install dependencies
+        run: docker-compose exec -T php composer update --no-interaction
+
+      - name: Reset shop
+        run: docker-compose exec -T php bin/oe-console oe:database:reset --db-host=mysql --db-port=3306 --db-name=example --db-user=root --db-password=root
+
+      - name: Run tests
+        run: docker-compose exec -T php vendor/bin/phpunit --bootstrap=./source/bootstrap.php vendor/oxid-esales/deployment-tools/tests/
+
+      - name: Stop containers
+        run: |
+          docker-compose down
+          sleep 2
+
+      - name: Cleanup workspace
+        run: |
+          ls -la ./
+          rm -rf ./* || true
+          rm -rf ./.??* || true
+          ls -la ./
+
+      - name: Cleanup Docker
+        run: |
+          c=$(docker ps -q) && [[ $c ]] && docker kill $c
+          docker system prune --force
+          
+  notify_slack:
+    runs-on: self-hosted
+    needs: [ run_tests ]
+    if: always() && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
+    steps:
+      - name: Send custom JSON data to Slack workflow
+        uses: slackapi/slack-github-action@v1.23.0
+        with:
+          # "needs" context used to access the state of related jobs
+          # "github" context used to access workflow its trigger information
+          # Warning: Payload is JSON format given through Yaml. Be careful with new lines and do not make it NICE looking, it will not work here ;)
+          # Help: New lines can be easily added for texts bellow. Check how it's currently implemented in this example!
+          payload: >
+            {"text": "
+            ${{ github.event_name == 'workflow_dispatch' && 'Manual' || 'Scheduled' }} ${{ github.workflow }} workflow on ${{ github.repository }}
+            ${{ needs.run_tests.result=='success' && 'Successful' || 'Failed' }}
+            ", "blocks": [{"type": "header","text": {"type": "plain_text", "emoji": true, "text": "
+            ${{ github.event_name == 'workflow_dispatch' && 'Manual' || 'Scheduled' }} ${{ github.workflow }} workflow on ${{ github.repository }} by ${{ github.actor }}
+            "}},{"type": "section","fields": [{"type": "mrkdwn","text": "
+            *Status:* ${{ needs.run_tests.result=='success' && ':white_check_mark:' || ':x:' }}
+            "},{"type": "mrkdwn","text": "
+            Repository: <${{ github.server_url }}/${{ github.repository }}|${{ github.repository }}>
+            "}]},{"type": "section", "text": {"type": "mrkdwn", "text": "
+            \n* Run tests job ${{ needs.run_tests.result=='success' && ':white_check_mark:' || ':x:' }}
+            "}}, {"type": "divider"}]}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
