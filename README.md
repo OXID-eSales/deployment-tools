@@ -11,7 +11,14 @@ composer require oxid-esales/deployment-tools
 
 ## Usage
 
+### Deploy module configurations
 
+If you move module configuration files from one environment to another you can deploy module configurations with 
+the following command:
+
+```bash
+vendor/bin/oe-console oe:module:deploy-configurations
+```
 
 ## How to run tests?
 

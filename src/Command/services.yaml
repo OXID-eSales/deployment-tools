@@ -1,0 +1,7 @@
+services:
+  _defaults:
+    autowire: true
+
+  OxidEsales\DeploymentTools\Command\DeployModuleConfigurationsCommand:
+    tags:
+      - { name: 'console.command', command: 'oe:module:deploy-configurations' }
