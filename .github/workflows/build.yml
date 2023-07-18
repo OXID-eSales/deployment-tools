@@ -12,7 +12,7 @@ jobs:
         php: [ '8.1' ]
         mysql: [ '8.0' ]
       fail-fast: false
-    runs-on: self-hosted
+    runs-on: [self-hosted, x64]
     steps:
       - name: Cleanup workspace
         run: |
@@ -118,7 +118,7 @@ jobs:
           docker system prune --force
           
   notify_slack:
-    runs-on: self-hosted
+    runs-on: [self-hosted, x64]
     needs: [ run_tests ]
     if: always() && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
     steps:
