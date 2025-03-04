@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace OxidEsales\DeploymentTools\Command;
 
-use OxidEsales\EshopCommunity\Internal\Framework\Console\Executor;
 use OxidEsales\EshopCommunity\Internal\Framework\Module\Configuration\Dao\ShopConfigurationDaoInterface;
 use OxidEsales\EshopCommunity\Internal\Framework\Module\Configuration\DataObject\ModuleConfiguration;
 use OxidEsales\EshopCommunity\Internal\Framework\Module\Configuration\DataObject\ShopConfiguration;
@@ -24,8 +23,8 @@ class DeployModuleConfigurationsCommand extends Command
     private int $status = Command::SUCCESS;
 
     public function __construct(
-        private ShopConfigurationDaoInterface $shopConfigurationDao,
-        private ModuleActivationServiceInterface $moduleActivationService
+        private readonly ShopConfigurationDaoInterface $shopConfigurationDao,
+        private readonly ModuleActivationServiceInterface $moduleActivationService
     ) {
         parent::__construct();
     }
@@ -37,7 +36,7 @@ class DeployModuleConfigurationsCommand extends Command
             and deactivates all modules with "activated=false" state.
         ')
             ->addArgument(
-                Executor::SHOP_ID_PARAMETER_OPTION_NAME,
+                'shop-id',
                 InputArgument::OPTIONAL,
                 'Id of a shop'
             );
@@ -45,7 +44,7 @@ class DeployModuleConfigurationsCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $shopId = (int) $input->getArgument(Executor::SHOP_ID_PARAMETER_OPTION_NAME);
+        $shopId = (int) $input->getArgument('shop-id');
         if ($shopId) {
             $this->deployModuleConfigurations($output, $this->shopConfigurationDao->get($shopId), $shopId);
         } else {
