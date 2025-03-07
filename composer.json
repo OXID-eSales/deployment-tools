@@ -9,12 +9,12 @@
   ],
   "autoload": {
     "psr-4": {
-      "OxidEsales\\DeploymentTools\\": "./src"
+      "OxidEsales\\DeploymentTools\\": "src"
     }
   },
   "autoload-dev": {
     "psr-4": {
-      "OxidEsales\\DeploymentTools\\Tests\\": "./tests"
+      "OxidEsales\\DeploymentTools\\Tests\\": "tests"
     }
   }
 }

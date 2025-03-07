@@ -1,0 +1,49 @@
+# {{ $org := "oxid-esales" }}organisation: {{ $org }}
+# {{ $name := "deployment-tools" }}name: {{ $name }}
+
+install: &install
+  git:
+    sdk_ref: b-8.0.x
+    ref: b-8.0.x
+  method: script
+  script: 'source/.github/{{ $org }}/install.sh'
+  copy_script_targets: |
+    tests/scripts
+    vendor/oxid-esales/deployment-tools/tests/scripts
+  composer:
+    root_url: ''
+    early: 'skip'
+    transform: |
+      {
+        "config": {
+          "github-protocols": ["https"]
+        },
+        "preferred-install": {
+          "oxid-esales/*": "source"
+        },
+        "require": {
+          "oxid-esales/twig-component": "{{ .Data.global.composer.dev_ref }}",
+          "oxid-esales/twig-admin-theme": "{{ .Data.global.composer.dev_ref }}",
+          "oxid-esales/apex-theme": "{{ .Data.global.composer.dev_ref }}",
+          "oxid-esales/deployment-tools": "dev-{{ .Data.global.git.safe_ref_name }}"
+        }
+      }
+
+install_shop_with_modules: *install
+
+runscript:
+  matrix:
+    script: |
+      [
+        "shop:~/unit.sh",
+        "deployment_tools:~/integration.sh"
+      ]
+  composer:
+    early: skip
+  shop:
+    path: ''
+  deployment_tools:
+    path: 'vendor/{{ $org }}/{{ $name }}'
+
+finish:
+  slack_title: 'Deployment Tools ({{ .Data.global.git.shop_ref }}) by {{ .Github.Actor }}'

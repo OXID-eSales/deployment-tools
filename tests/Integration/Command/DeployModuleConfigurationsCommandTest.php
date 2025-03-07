@@ -7,7 +7,7 @@
 
 declare(strict_types=1);
 
-namespace OxidEsales\DeploymentTools\Tests\Command;
+namespace OxidEsales\DeploymentTools\Tests\Integration\Command;
 
 use OxidEsales\EshopCommunity\Internal\Framework\Module\Configuration\Dao\ShopConfigurationDaoInterface;
 use OxidEsales\EshopCommunity\Internal\Framework\Module\Configuration\DataObject\ModuleConfiguration;

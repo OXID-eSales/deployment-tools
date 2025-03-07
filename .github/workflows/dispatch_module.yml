@@ -1,0 +1,21 @@
+name: Manual run
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  deployment_tools:
+    if: always()
+    uses: oxid-eSales/github-actions/.github/workflows/universal_workflow_light.yaml@v4
+    with:
+      testplan: '~/defaults/8.0.x.yaml,~/defaults/php8.4_mysql8.0_only.yaml,~/deployment-tools.yaml'
+      runs_on: '"ubuntu-latest"'
+      defaults: 'v4'
+      plan_folder: '.github/oxid-esales'
+    secrets:
+      DOCKER_HUB_USER: ${{ secrets.DOCKER_HUB_USER }}
+      DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
+      CACHE_ENDPOINT: ${{ secrets.CACHE_ENDPOINT }}
+      CACHE_ACCESS_KEY: ${{ secrets.CACHE_ACCESS_KEY }}
+      CACHE_SECRET_KEY: ${{ secrets.CACHE_SECRET_KEY }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
